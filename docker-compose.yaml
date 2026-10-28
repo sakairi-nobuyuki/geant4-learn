@@ -1,0 +1,19 @@
+services:
+  geant:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    image: geant:latest
+    container_name: geant
+    working_dir: /home/app/geant_ws
+    volumes:
+      - ./geant-ws:/home/app/geant-ws
+ #     - ./data:/var/lib/human-hils
+#    environment:
+#      PYTHONUNBUFFERED: "1"
+
+
+    init: true
