@@ -8,12 +8,15 @@ services:
         GID: ${GID:-1000}
     image: geant:latest
     container_name: geant
-    working_dir: /home/app/geant_ws
+    working_dir: /home/app/geant4-ws
     volumes:
-      - ./geant-ws:/home/app/geant-ws
- #     - ./data:/var/lib/human-hils
-#    environment:
-#      PYTHONUNBUFFERED: "1"
-
-
+      - ./geant4-ws:/home/app/geant4-ws
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_QPA_PLATFORM=xcb
+      - QT_X11_NO_MITSHM=1
+      - LIBGL_ALWAYS_SOFTWARE=1
+    stdin_open: true
+    tty: true
     init: true

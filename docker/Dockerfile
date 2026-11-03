@@ -1,5 +1,7 @@
 FROM ubuntu:22.04
 
+
+## set up non-root user
 ARG USERNAME=app
 ARG UID=1000
 ARG GID=1000
@@ -9,18 +11,16 @@ RUN apt-get update && \
     groupadd --gid ${GID} ${USERNAME} && \
     useradd -m -u ${UID} -g ${GID} -s /bin/bash ${USERNAME} && \
     echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-
+    
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
 
+## install geant4
 RUN sudo apt update && \
     sudo apt install -y build-essential cmake ninja-build git wget \
     libexpat1-dev libxerces-c-dev libgl1-mesa-dev libglu1-mesa-dev libx11-dev \
     libxmu-dev libxi-dev qt6-base-dev python3 python3-venv    
-
-
 WORKDIR /home/${USERNAME}
-
 RUN git clone --branch v11.4.3 --depth 1 https://github.com/Geant4/geant4.git geant4-src    
 
 WORKDIR /home/${USERNAME}/geant4-install
@@ -36,3 +36,5 @@ RUN cmake -G Ninja \
     cmake --build . -j 4 && \
     cmake --install .
 
+## installing aux stuffs
+RUN sudo apt-get update && sudo apt-get install -y x11-xserver-utils    
