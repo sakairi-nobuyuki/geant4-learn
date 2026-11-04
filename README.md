@@ -300,15 +300,15 @@ Absorbed dose per run in scoring volume = ...
 
 The absorbed dose is calculated as:
 
-\[
+$$
 D = \frac{E_{\mathrm{dep}}}{m}
-\]
+$$
 
 where:
 
-- \(D\) is absorbed dose in Gy
-- \(E_{\mathrm{dep}}\) is deposited energy in J
-- \(m\) is scoring volume mass in kg
+- $D$ is absorbed dose in Gy
+- $E_{\mathrm{dep}}$ is deposited energy in J
+- $m$ is scoring volume mass in kg
 
 The result represents the dose from the simulated primary events, not a dose rate per hour or per year.
 
