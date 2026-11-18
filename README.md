@@ -714,6 +714,16 @@ The repository may serve as an introductory platform for:
 
 The long-term objective is to connect particle transport simulations with device-level response models and engineering design decisions.
 
+## Codex
+
+```shell
+cd ~/geant4-ws
+
+codex --sandbox danger-full-access \
+      --ask-for-approval on-request
+```
+
+
 ## 16. References
 
 - [Geant4 Official Website](https://geant4.web.cern.ch/)
@@ -729,4 +739,6 @@ This repository is provided for educational and experimental purposes.
 It is not a validated space radiation analysis tool and should not be used as the sole basis for safety-critical or mission-critical engineering decisions.
 
 The simulation models, physics assumptions, and numerical results are subject to further verification and validation.
+
+
 
