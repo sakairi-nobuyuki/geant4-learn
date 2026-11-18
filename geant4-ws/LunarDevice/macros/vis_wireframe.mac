@@ -1,0 +1,15 @@
+# Run inside an already initialized interactive B1 Qt session.
+# No /vis/open, /run/initialize, or /vis/drawVolume here.
+/vis/viewer/set/autoRefresh false
+/vis/geometry/set/visibility World 0 false
+/vis/geometry/set/visibility Cavity 0 false
+/vis/geometry/set/visibility AlCase 0 true
+/vis/geometry/set/forceWireframe AlCase 0 true
+/vis/geometry/set/colour AlCase 0 0.7 0.7 0.7 1
+/vis/geometry/set/visibility Chip 0 true
+/vis/geometry/set/colour Chip 0 0 1 0 1
+/vis/viewer/set/style surface
+/vis/viewer/set/viewpointThetaPhi 65 35
+/vis/viewer/set/autoRefresh true
+/vis/scene/notifyHandlers
+/vis/viewer/refresh
