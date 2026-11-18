@@ -1,13 +1,14 @@
 services:
-  geant:
+  geant4-base:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/base/Dockerfile
       args:
         UID: ${UID:-1000}
         GID: ${GID:-1000}
-    image: geant:latest
-    container_name: geant
+      target: geant4-base
+    image: geant4-base:latest
+    container_name: geant4_base
     working_dir: /home/app/geant4-ws
     volumes:
       - ./geant4-ws:/home/app/geant4-ws
@@ -20,3 +21,28 @@ services:
     stdin_open: true
     tty: true
     init: true
+  geant4-dev:
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+      target: geant4-dev
+    image: geant4-dev:latest
+    container_name: geant4_dev
+    working_dir: /home/app/geant4-ws
+    volumes:
+      - ./geant4-ws:/home/app/geant4-ws
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - UID=${UID:-1000}
+      - GID=${GID:-1000}
+      - DISPLAY=${DISPLAY}
+      - QT_QPA_PLATFORM=xcb
+      - QT_X11_NO_MITSHM=1
+      - LIBGL_ALWAYS_SOFTWARE=1
+    stdin_open: true
+    tty: true
+    init: true
+
