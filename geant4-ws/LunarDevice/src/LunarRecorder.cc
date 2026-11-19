@@ -27,6 +27,29 @@ namespace {
   std::string ProcessName(const G4VProcess* process) {
     return process ? std::string(process->GetProcessName()) : "none";
   }
+  const std::filesystem::path& OutputFolder() {
+    // Function-local static initialization reserves the directory once per process.
+    static const auto folder = [] {
+      const char* env = std::getenv("LUNAR_OUTPUT_DIR");
+      const std::filesystem::path path = env && *env ? env : "results";
+      std::filesystem::create_directories(path);
+      for (const auto& entry : std::filesystem::directory_iterator(path)) {
+        const auto name = entry.path().filename().string();
+        if (entry.path().extension() == ".csv" &&
+            (name.rfind("events_r", 0) == 0 || name.rfind("reactions_r", 0) == 0 ||
+             name.rfind("neutrons_r", 0) == 0 || name.rfind("crossings_r", 0) == 0)) {
+          throw std::runtime_error("Lunar CSVs already exist in " + path.string() +
+                                   "; choose a fresh LUNAR_OUTPUT_DIR");
+        }
+      }
+      if (!std::filesystem::create_directory(path / ".lunar-run")) {
+        throw std::runtime_error("Lunar output directory already reserved: " + path.string() +
+                                 "; choose a fresh LUNAR_OUTPUT_DIR");
+      }
+      return path;
+    }();
+    return folder;
+  }
   void Open(std::ofstream& file, const std::filesystem::path& path,
             const std::string& header) {
     file.open(path, std::ios::out | std::ios::trunc);
@@ -37,9 +60,7 @@ namespace {
 
 void LunarRecorder::OpenFiles(G4int runId) {
   fEvents.close(); fReactions.close(); fNeutrons.close(); fCrossings.close();
-  const char* env = std::getenv("LUNAR_OUTPUT_DIR");
-  const std::filesystem::path folder = env && *env ? env : "results";
-  std::filesystem::create_directories(folder);
+  const auto& folder = OutputFolder();
   const auto suffix = "_r" + std::to_string(runId) + "_t" +
                       std::to_string(G4Threading::G4GetThreadId()) + ".csv";
   Open(fEvents, folder / ("events" + suffix),
@@ -61,7 +82,14 @@ void LunarRecorder::OpenFiles(G4int runId) {
 void LunarRecorder::BeginEvent(const G4Event* event) {
   const auto* run = G4RunManager::GetRunManager()->GetCurrentRun();
   const auto runId = run ? run->GetRunID() : 0;
-  if (runId != fRunId) OpenFiles(runId);
+  if (runId != fRunId) {
+    try {
+      OpenFiles(runId);
+    } catch (const std::exception& error) {
+      G4Exception("LunarRecorder::BeginEvent", "LunarOutput001",
+                  FatalException, error.what());
+    }
+  }
   fEventId = event->GetEventID();
   fProtonInelastic = fNeutronsCreated = fNeutronsIntoChip = 0;
   fPrimaryEnteredCase = fPrimaryEnteredCavity = 0;

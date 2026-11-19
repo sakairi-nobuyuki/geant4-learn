@@ -11,7 +11,16 @@ This overlay extends the **existing** Geant4 B1-derived `LunarDevice` source. It
 
 The CSVs are split by Geant4 worker to avoid concurrent writes. Merge them by reading every matching `*_r*_t*.csv` file, not by taking one worker file. Each worker writes its own CSV files with headers.
 
-`primary_entered_cavity` is **not** a general attenuation coefficient or transmission through the entire Al enclosure: it is the first-passage *event indicator* for the Al -> Cavity boundary (primary proton), and the current beam is artificially limited to the 10x10 mm chip footprint. The `events` CSV also records neutron entries into silicon, which are *crossing counts* and can include the same track more than once.
+CSV headers in column order
+
+- `events` — `run_id,event_id,primary_entered_Al,primary_entered_cavity,primary_energy_at_cavity_MeV,proton_inelastic_in_Al,neutrons_created_in_Al,neutrons_entered_Si,Si_edep_MeV,primary_proton_Si_edep_MeV,direct_neutron_Si_edep_MeV`
+- `reactions` — `run_id,event_id,track_id,parent_id,particle,process,volume,pre_energy_MeV,post_energy_MeV,x_mm,y_mm,z_mm,secondaries_total,secondary_neutrons`
+- `neutrons` — `run_id,event_id,parent_track_id,creator_process,energy_MeV,x_mm,y_mm,z_mm,dx,dy,dz`
+- `crossings` — `run_id,event_id,track_id,parent_id,particle,from_volume,to_volume,energy_MeV,x_mm,y_mm,z_mm`
+
+The `_MeV` and `_mm` suffixes identify energy and position units. The `dx,dy,dz` columns are dimensionless direction cosines. In the neutron table, `creator_process` records the process that defined the parent step.
+
+`primary_entered_cavity` indicates whether the primary proton reached the cavity from AlCase or, at 0 mm, from World. The energy column stores the most recent qualifying entry energy, or `-1` when there was no entry. The beam is limited to the 10 × 10 mm chip footprint. Neutron entries into silicon count crossing occurrences, including repeat entries by the same track.
 
 `direct_neutron_Si_edep_MeV` is energy left directly on neutron steps; it is not a complete attribution of energy deposited by all neutron descendants. The total `Si_edep_MeV` includes all tracks.
 
@@ -46,7 +55,7 @@ For 10,000 events:
 python3 ../scripts/analyze.py --dir results
 ```
 
-Results default to the *process working directory*, normally `LunarDevice/build/results/`. Override with `LUNAR_OUTPUT_DIR=/some/path` in your Docker shell. Output files for a repeated run use the same names and **are overwritten**, so archive runs or change the output directory before rerunning.
+Results default to the *process working directory*, normally `LunarDevice/build/results/`. Override with `LUNAR_OUTPUT_DIR=/some/path` in your Docker shell. Use a fresh output directory for each process. The recorder reserves it with a `.lunar-run` marker at the first event and rejects directories that already have that marker or LunarDevice CSVs.
 
 ## Interaction visualization
 
@@ -69,29 +78,18 @@ No lunar spectrum, real time normalization, SEE probability, or semiconductor ch
 
 ## Known constraints
 
-- **Runtime compilation was not possible here**: your complete `LunarDevice` source tree and installed Geant4 SDK are not available in this environment. Changes are based on Geant4 11.4 B1 APIs and must be compiled/tested in your Docker container.
 - The original `CMakeLists.txt` in official B1 uses `file(GLOB sources .../src/*.cc)`; if your customized `CMakeLists.txt` lists sources explicitly, add `src/LunarRecorder.cc` manually.
 - The code uses C++17 `<filesystem>`, so ensure the CMake target uses C++17 or later.
 - New files are intentionally named `Lunar*` to avoid overwriting existing B1 action implementations.
 
-## Optional aluminum thickness sweep
+## Aluminum thickness sweep
 
-An OPTIONAL alternative geometry is provided at `extras/DetectorConstruction_parametric.cc` **outside** the source overlay. It does not touch your existing geometry unless you explicitly copy it:
+Set `LUNAR_AL_THICKNESS_MM` to specify wall thickness in mm. The default is 2 mm. Use 0 for an unshielded reference with the vacuum cavity directly inside the world and no aluminum volume. For positive values, the outer enclosure is 100 × 100 × 30 mm and each cavity dimension decreases by twice the thickness. The thickness must be below 14.75 mm to leave clearance for the centered 0.5 mm chip.
 
-```bash
-# From the HOST repo root; after extracting the ZIP:
-cp extras/DetectorConstruction_parametric.cc \
-   geant4-ws/LunarDevice/src/DetectorConstruction.cc
-```
-
-Confirm that this simplified geometry is appropriate before replacing any custom model. The thickness is read from `LUNAR_AL_THICKNESS_MM` at geometry construction; default is 2 mm. At 0 mm, `AlCase` is absent and `Cavity` is directly inside `World`. Source and scoring volumes remain identical across cases. It can be swept without recompiling each thickness, but C++ must first be rebuilt after installing the parametric geometry.
+From the application build directory, after building the executable:
 
 ```bash
-cd ~/geant4-ws/LunarDevice
-cmake -S . -B build -G Ninja && cmake --build build -j 4
-cd build
 python3 ../scripts/sweep_al.py --thicknesses 0 1 2 5 10
-python3 ../scripts/analyze.py --dir sweep_results/al_2mm
 ```
 
-The logger counts World->Cavity as a cavity entry for the 0-mm case. For an apples-to-apples comparison, use the same source particle distribution, the same number of primaries, and repeated seeds/runs for statistical uncertainties. The sweep currently provides raw event results per case; automatic uncertainty bars and dose-rate normalization are not included.
+Each case gets a fresh directory under `sweep_results` (or `--outdir`). The runner prints each path and saves its batch log there. Pass the printed case path to `python3 ../scripts/analyze.py --dir`. Use repeated seeds and comparable event counts to estimate sampling uncertainty.

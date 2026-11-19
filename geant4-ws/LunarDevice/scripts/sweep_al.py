@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-"""Run thickness cases with optional parametric DetectorConstruction.cc.
-
-Must replace src/DetectorConstruction.cc with extras/DetectorConstruction_parametric.cc
-and rebuild before running. Batch-only. Each thickness goes to a separate output directory.
-"""
+"""Run each aluminum thickness in a fresh batch output directory."""
 import argparse
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -18,9 +15,10 @@ def main():
                         default=[0, 1, 2, 5, 10])
     parser.add_argument('--outdir', default='sweep_results')
     args = parser.parse_args()
+    output_root = Path(args.outdir).resolve()
+    output_root.mkdir(parents=True, exist_ok=True)
     for t in args.thicknesses:
-        directory = (Path(args.outdir) / f'al_{t:g}mm').resolve()
-        directory.mkdir(parents=True, exist_ok=True)
+        directory = Path(tempfile.mkdtemp(prefix=f'al_{t:g}mm_', dir=output_root))
         env = os.environ.copy()
         env['LUNAR_AL_THICKNESS_MM'] = str(t)
         env['LUNAR_OUTPUT_DIR'] = str(directory)

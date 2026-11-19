@@ -6,10 +6,34 @@
 #include "G4PVPlacement.hh"
 #include "G4SystemOfUnits.hh"
 
+#include <cerrno>
+#include <cmath>
+#include <cstdlib>
+
 namespace B1 {
 
 G4VPhysicalVolume* DetectorConstruction::Construct()
 {
+    constexpr auto caseHalfXY = 50*mm;
+    constexpr auto caseHalfZ = 15*mm;
+    auto thickness = 2*mm;
+    if (const char* value = std::getenv("LUNAR_AL_THICKNESS_MM")) {
+        char* end = nullptr;
+        errno = 0;
+        const auto thicknessMm = std::strtod(value, &end);
+        if (end == value || *end != '\0' || errno == ERANGE || !std::isfinite(thicknessMm) ||
+            thicknessMm < 0 || thicknessMm >= caseHalfZ/mm ||
+            (thicknessMm > 0 && caseHalfZ - thicknessMm*mm <= 0.25*mm)) {
+            G4ExceptionDescription description;
+            description << "Invalid LUNAR_AL_THICKNESS_MM='" << value
+                        << "'. Use 0 for an unshielded reference, or a positive"
+                        << " thickness below 14.75 mm to leave room for the chip.";
+            G4Exception("DetectorConstruction::Construct", "LunarGeometry001",
+                        FatalException, description);
+        }
+        thickness = thicknessMm*mm;
+    }
+
     auto* nist = G4NistManager::Instance();
 
     // Materials
@@ -30,28 +54,25 @@ G4VPhysicalVolume* DetectorConstruction::Construct()
     );
 
     // Aluminum enclosure: 100 x 100 x 30 mm
-    auto* solidCase = new G4Box(
-        "AlCase", 50*mm, 50*mm, 15*mm
-    );
-    auto* logicCase = new G4LogicalVolume(
-        solidCase, aluminum, "AlCase"
-    );
-    new G4PVPlacement(
-        nullptr, {}, logicCase, "AlCase",
-        logicWorld, false, 0, true
-    );
+    auto* cavityMother = logicWorld;
+    if (thickness > 0) {
+        auto* solidCase = new G4Box("AlCase", caseHalfXY, caseHalfXY, caseHalfZ);
+        auto* logicCase = new G4LogicalVolume(solidCase, aluminum, "AlCase");
+        new G4PVPlacement(nullptr, {}, logicCase, "AlCase",
+                          logicWorld, false, 0, true);
+        cavityMother = logicCase;
+    }
 
-    // Inner cavity: 96 x 96 x 26 mm
-    // This leaves 2 mm aluminum walls.
+    // With no wall, the vacuum cavity fills the enclosure footprint.
     auto* solidCavity = new G4Box(
-        "Cavity", 48*mm, 48*mm, 13*mm
+        "Cavity", caseHalfXY - thickness, caseHalfXY - thickness, caseHalfZ - thickness
     );
     auto* logicCavity = new G4LogicalVolume(
         solidCavity, vacuum, "Cavity"
     );
     new G4PVPlacement(
         nullptr, {}, logicCavity, "Cavity",
-        logicCase, false, 0, true
+        cavityMother, false, 0, true
     );
 
     // Silicon chip: 10 x 10 x 0.5 mm
