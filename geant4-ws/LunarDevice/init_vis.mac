@@ -12,5 +12,5 @@
 # Initialize kernel
 /run/initialize
 #
-# Visualization setting
+# Open the geometry viewer. Start events explicitly with /run/beamOn.
 /control/execute vis.mac

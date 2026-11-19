@@ -2,35 +2,20 @@
 # of the B1 example when running in interactive mode
 #
 
-# Specify a viewer, e.g., /vis/open OGL, or allow a system choice:
-/vis/open
-# This chooses a graphics system (in order of priority):
-# - by argument in G4VisExecutive construction.
-# - by environment variable, G4VIS_DEFAULT_DRIVER.
-# - by information in ~/.g4session.
-# - by mode (batch/interactive) and if interactive, by your build flags.
-# See "Choosing a graphics viewer" in the Application Guide for details.
-# For example, with environment variable G4VIS_DEFAULT_DRIVER:
-#   The format is <graphics-system> [<window-size-hint>]. Set this, e.g:
-#     (bash) export G4VIS_DEFAULT_DRIVER=TSG
-#     (tcsh) setenv G4VIS_DEFAULT_DRIVER OI
-#   or on the command line, precede the app invocation, e.g:
-#     G4VIS_DEFAULT_DRIVER=Vtk ./<application-name>
-#   The window-size-hint can optionally be added, e.g:
-#     (bash) export G4VIS_DEFAULT_DRIVER="OGLSX 1000x1000-0+0"
-# Other suggestions for G4VIS_DEFAULT_DRIVER (see list of registered
-# graphics systems printed at the start):
-#     DAWNFILE: to create a .prim file suitable for viewing in DAWN.
-#     VRML2FILE: to create a .wrl file suitable for viewing in a VRML viewer.
-#     "TSG_OFFSCREEN 1200x1200": to create an image file with TSG.
-#       See the tsg_offscreen.mac in examples/basic/B5 for more commands
-#       to change the file format, file name, picture size, etc.
+# Open the interactive TSG viewer once.
+/vis/open TSG
 
 # Disable auto refresh and quieten vis messages whilst scene and
 # trajectories are established:
 /vis/viewer/set/autoRefresh false
 /vis/verbose errors
 #
+# Show the enclosure as wireframe and the chip as a green surface.
+/vis/geometry/set/visibility World 0 false
+/vis/geometry/set/visibility Cavity 0 false
+/vis/geometry/set/forceWireframe AlCase 0 true
+/vis/geometry/set/colour AlCase 0 0.7 0.7 0.7 1
+/vis/geometry/set/colour Chip 0 0 1 0 1
 # Draw geometry:
 /vis/drawVolume
 #
@@ -98,16 +83,6 @@
 /vis/set/colour        # Revert to default colour (white)
 /vis/set/lineWidth     # Revert to default line width (1.)
 #
-# Attach text to one edge of Shape1, with a small, fixed offset
-/vis/scene/add/text 0 6 -4 cm 18 4 4 Shape1
-# Attach text to one corner of Shape2, with a small, fixed offset
-/vis/scene/add/text 6 7 10 cm 18 4 4 Shape2
-#
-# To get nice view
-# Make the "World" box invisible
-/vis/geometry/set/visibility World 0 false
-# "Envelope" is transparent blue to represent water
-# /vis/geometry/set/colour Envelope 0 0 0 1 .3
 /vis/viewer/set/style surface
 /vis/viewer/set/hiddenMarker true
 /vis/viewer/set/viewpointThetaPhi 120 150

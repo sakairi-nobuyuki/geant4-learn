@@ -1,26 +1,3 @@
-/run/initialize
-
-# Open OpenGL viewer
-/vis/open OGL 1000x800-0+0
-
-# Draw geometry
-/vis/drawVolume
-/vis/viewer/set/style surface
-/vis/viewer/set/viewpointThetaPhi 65 35
-/vis/viewer/zoom 1.5
-
-# Make enclosure transparent
-/vis/geometry/set/colour AlCase 0.7 0.7 0.7 0.15
-
-# Colour silicon green
-/vis/geometry/set/colour Chip 0.0 1.0 0.3 1.0
-
-# Draw particle tracks
-/vis/scene/add/trajectories smooth
-/vis/modeling/trajectories/create/drawByParticleID
-/vis/scene/endOfEventAction accumulate
-
-# Start with 20 events, not 10000
-/run/beamOn 20
-
-/vis/viewer/flush
+# Apply the LunarDevice wireframe preset to an existing viewer.
+# Run from LunarDevice/build after interactive startup.
+/control/execute ../macros/vis_wireframe.mac
