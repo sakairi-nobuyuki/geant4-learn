@@ -24,38 +24,20 @@ The `_MeV` and `_mm` suffixes identify energy and position units. The `dx,dy,dz`
 
 `direct_neutron_Si_edep_MeV` is energy left directly on neutron steps; it is not a complete attribution of energy deposited by all neutron descendants. The total `Si_edep_MeV` includes all tracks.
 
-## Installation
+## Run and analyze
 
-From your **host** shell:
-
-```bash
-cd ~/projects/geant-learn
-unzip -o ~/Downloads/lunar-logging-patch.zip
-```
-
-Adjust the ZIP path to wherever you saved it. The overlay modifies only `geant4-ws/LunarDevice/src/ActionInitialization.cc`, and adds six new source/header files plus analysis scripts/macros. Back up or commit your work before overlaying. No change to your Docker files is required.
-
-In your **Geant4 container** (assuming `~/geant4-ws/LunarDevice` is mounted):
+From the configured build directory inside the Geant4 container, run the 100-event smoke macro and analyze its saved CSVs.
 
 ```bash
-cd ~/geant4-ws/LunarDevice
-cmake -S . -B build -G Ninja
-cmake --build build -j 4
-cd build
-./exampleB1 ../macros/run_log_smoke.mac
-python3 ../scripts/analyze.py --dir results
+cd /home/app/geant4-ws/LunarDevice/build
+out=$(mktemp -d)
+LUNAR_OUTPUT_DIR="$out" ./exampleB1 ../macros/run_log_smoke.mac
+python3 ../scripts/analyze.py --dir "$out"
 ```
 
-If the build cannot locate Geant4, add `-DGeant4_DIR=/actual/path/to/dir/containing/Geant4Config.cmake` at CMake configuration time. If the build directory already exists and uses Ninja, the CMake command is generally sufficient.
+For 10,000 events, use `../macros/run_log.mac` with a fresh `out`. Invoking `./exampleB1` opens the viewer and waits for an explicit simulation command. To record events interactively, set `LUNAR_OUTPUT_DIR` before starting the viewer and issue `/run/beamOn N` at its prompt.
 
-For 10,000 events:
-
-```bash
-./exampleB1 ../macros/run_log.mac
-python3 ../scripts/analyze.py --dir results
-```
-
-Results default to the *process working directory*, normally `LunarDevice/build/results/`. Override with `LUNAR_OUTPUT_DIR=/some/path` in your Docker shell. Use a fresh output directory for each process. The recorder reserves it with a `.lunar-run` marker at the first event and rejects directories that already have that marker or LunarDevice CSVs.
+The default output is `results/` relative to the process working directory. The recorder reserves it with a `.lunar-run` marker at the first event and rejects directories that already have that marker or LunarDevice CSVs. Consecutive runs in one process use distinct run IDs in the same directory. Analyze completed outputs after the simulation process exits. The analyzer reads all event and neutron worker files and prints its summary to standard output.
 
 ## Interaction visualization
 

@@ -52,6 +52,10 @@ namespace {
   }
   void Open(std::ofstream& file, const std::filesystem::path& path,
             const std::string& header) {
+    if (std::filesystem::symlink_status(path).type() != std::filesystem::file_type::not_found) {
+      throw std::runtime_error("Lunar CSV already exists: " + path.string() +
+                               "; choose a fresh LUNAR_OUTPUT_DIR");
+    }
     file.open(path, std::ios::out | std::ios::trunc);
     if (!file) throw std::runtime_error("Cannot write CSV: " + path.string());
     file << std::setprecision(10) << header << '\n';

@@ -4,6 +4,75 @@
 
 LunarDevice is an educational C++ application derived from Geant4 Basic Example B1. It simulates particle transport through shielding, secondary particle production, and energy deposition in a simplified semiconductor device. The geometry and beam are suitable for controlled Monte Carlo exercises. A validated lunar radiation environment model would require a representative source spectrum and independent physical validation.
 
+## View geometry
+
+With the Geant4 runtime configured and a working graphical display, start the viewer with no arguments.
+
+```bash
+cd /home/app/geant4-ws/LunarDevice/build
+./exampleB1
+```
+
+Startup runs `init_vis.mac`, which initializes Geant4 and calls `vis.mac` to open the Qt/TSG viewer. The startup view shows the aluminum enclosure in wireframe and the silicon chip in green, with the world and vacuum cavity hidden. Opening the viewer generates zero Monte Carlo events and creates no CSVs. You can open it with saved CSVs already in `results/`.
+
+Enter these commands at the Geant4 prompt to set a camera angle and zoom in.
+
+```text
+/vis/viewer/set/viewpointThetaPhi 65 35
+/vis/viewer/zoom 1.5
+```
+
+To show only the chip or restore the enclosure, execute the corresponding preset from the open viewer. The enclosure preset is for positive aluminum thickness.
+
+```text
+/control/execute ../macros/vis_chip_only.mac
+/control/execute ../macros/vis_wireframe.mac
+```
+
+`/control/execute ../vis_lunar.mac` also applies the wireframe preset to the open viewer. Qt/TSG startup was checked on the container display. Interactive camera changes and trajectory rendering were not exercised in that check. Prior redraw instability has been reported.
+
+## Run Monte Carlo
+
+Choose a fresh output directory before launching a process that will simulate. From `LunarDevice/build/`, start an interactive session with its output directory set.
+
+```bash
+out=$(mktemp -d)
+LUNAR_OUTPUT_DIR="$out" ./exampleB1
+```
+
+At the Geant4 prompt, type `/run/beamOn 5` and press Enter. `/run/beamOn N` requests N primary events. The viewer is configured to display trajectories after an explicit run.
+
+For headless batch simulation, pass a macro argument. Use a fresh directory for each invocation. The baseline macro requests two 10,000-event runs and sets a 10 µm production range cut. The logging macro `../macros/run_log.mac` requests one 10,000-event run with reduced event and tracking verbosity.
+
+```bash
+out=$(mktemp -d)
+LUNAR_OUTPUT_DIR="$out" ./exampleB1 ../run_lunar.mac
+printf '%s\n' "$out"
+```
+
+For the 100-event logging smoke test, use the following command. The macro needs no display or Qt platform setting.
+
+```bash
+out=$(mktemp -d)
+LUNAR_OUTPUT_DIR="$out" ./exampleB1 ../macros/run_log_smoke.mac >"$out/run.log" 2>&1
+printf '%s\n' "$out"
+```
+
+Batch mode executes the supplied macro. A macro can request events with `/run/beamOn` and visualization with commands such as `/vis/open`.
+
+## Analyze saved results
+
+From `LunarDevice/build/`, pass the saved CSV directory to the Python analyzer. For the batch examples above, use the printed directory as `out`. For files written to the default location, use `--dir results`.
+
+```bash
+python3 ../scripts/analyze.py --dir "$out"
+```
+
+The analyzer reads all matching event and neutron worker CSVs, pools run IDs within the input directory, and prints statistics to standard output. Rerun the command to regenerate the summary. It uses only the Python standard library and creates no files. The summary includes entry fractions, reaction and neutron counts, silicon energy deposition, absorbed dose, and neutron energy statistics when birth records are available. The calculation assumes a 100 MeV proton source and a 116.5 mg chip.
+
+Missing or malformed event input is reported as an error. Inconsistent or missing neutron files produce a warning and omit neutron energy statistics. The original event count must be checked against the simulation log because the CSVs do not record the requested count. Plot generation is outside the current analyzer.
+
+
 ## Simulation geometry
 
 [DetectorConstruction.cc](src/DetectorConstruction.cc) constructs centered, axis-aligned boxes using Geant4 NIST materials. Dimensions below are full lengths in world X × Y × Z.
@@ -47,32 +116,13 @@ cmake -S . -B build -G Ninja \
 cmake --build build
 ```
 
-[CMakeLists.txt](CMakeLists.txt) finds Geant4 with `ui_all` and `vis_all`, compiles the application target `exampleB1`, and copies the startup macros into `build/`. The logging, LunarDevice batch, and visualization preset macros used below are referenced from the source tree. Building the existing tree was verified. The configuration command follows the current CMake cache and project rules.
-
-## Running simulations
-
-From `LunarDevice/`, source the installed runtime setup as above. Use a new output directory for each process. This verified headless smoke-test workflow sets Qt to offscreen mode and runs the 100-event logging macro with no enclosure override.
-
-```bash
-out=$(mktemp -d)
-env -u LUNAR_AL_THICKNESS_MM QT_QPA_PLATFORM=offscreen LUNAR_OUTPUT_DIR="$out" \
-  ./build/exampleB1 macros/run_log_smoke.mac >"$out/run.log" 2>&1
-printf '%s\n' "$out"
-```
-
-| Batch macro | Commands and verification |
-| --- | --- |
-| [macros/run_log_smoke.mac](macros/run_log_smoke.mac) | Initializes and runs 100 events. Verified with all four CSV families and 100 unique event rows per run. |
-| [run_lunar.mac](run_lunar.mac) | Basic batch macro. Requests a 10 µm production range cut and two runs of 10,000 events each. Inspected in source. Execution and application of the requested cut were not verified. |
-| [macros/run_log.mac](macros/run_log.mac) | Initializes and requests one 10,000-event run with reduced event and tracking verbosity. Inspected in source. The 10,000-event execution was not verified. |
-
-To launch the basic or larger logging run, use the same shell pattern with a fresh `out=$(mktemp -d)` and pass `run_lunar.mac` or `macros/run_log.mac` as the executable's macro argument. The logger runs in both interactive and batch mode. Check `run.log` for Geant4 command errors and the processed event count before using the CSVs.
+[CMakeLists.txt](CMakeLists.txt) finds Geant4 with `ui_all` and `vis_all`, compiles the application target `exampleB1`, and copies `init_vis.mac` and `vis.mac` into `build/` using `configure_file(COPYONLY)`. Edit the source macros and run `cmake --build build -j 4` to refresh the copies through CMake regeneration. The executable reads the startup macros relative to its working directory. The commands above refer directly to the source copies of the batch and preset macros.
 
 ## CSV output
 
 [LunarRecorder.cc](src/LunarRecorder.cc) opens files when a worker starts its first event of a run. It uses `LUNAR_OUTPUT_DIR`, or `results/` relative to the working directory if unset or empty. Names end in `_r<run ID>_t<Geant4 thread ID>.csv`. For one case, read every file of each family with a CSV parser and retain the run and event IDs plus the worker ID from the filename if needed. Keep independent processes in separate directories because their IDs can repeat. Use event rows, including zero-deposit events, as the denominator for per-primary rates. Reaction, birth, and crossing files can contain just a header.
 
-Run/thread filenames repeat across invocations and would be overwritten if directory reuse were allowed. The current recorder rejects existing LunarDevice CSVs and reserves each directory with a `.lunar-run` marker. Use a fresh directory even after an interrupted run.
+The recorder checks the output directory when processing the first event and reserves it with a `.lunar-run` marker. Existing LunarDevice CSVs or a reservation trigger the fatal `LunarOutput001` error before any saved CSV is overwritten. Use a fresh directory for each process, including after an interrupted run. Consecutive runs within the same process share the directory and use distinct run IDs. Analyze saved data after the process exits so worker streams have closed.
 
 Headers below are in file order. Fields ending in `_MeV` contain energies in MeV and fields ending in `_mm` contain world positions in mm. IDs, counts, and flags are unitless. The neutron direction components are dimensionless.
 
@@ -110,63 +160,15 @@ One row per selected geometrical boundary crossing, with post-step kinetic energ
 run_id,event_id,track_id,parent_id,particle,from_volume,to_volume,energy_MeV,x_mm,y_mm,z_mm
 ```
 
-## Visualization
+## Aluminum thickness sweeps
 
-Use a Qt-capable Geant4 installation and a working graphical display. From `LunarDevice/build/`, start the application with no macro argument. Use a shielded configuration with these presets because they refer to `AlCase`.
-
-```bash
-out=$(mktemp -d)
-G4VIS_DEFAULT_DRIVER=TSG LUNAR_AL_THICKNESS_MM=2 LUNAR_OUTPUT_DIR="$out" ./exampleB1
-```
-
-| Macro | Responsibility |
-| --- | --- |
-| [init_vis.mac](init_vis.mac) | Runs automatically at interactive startup, initializes Geant4, and executes `vis.mac`. |
-| [vis.mac](vis.mac) | Opens the selected viewer once, draws the geometry, and configures smooth, accumulated trajectories with the active charge-based model. It still contains legacy B1 text labels `Shape1` and `Shape2` that do not describe this geometry. |
-| [macros/vis_wireframe.mac](macros/vis_wireframe.mac) | Hides world and cavity, forces the gray enclosure to wireframe, and displays the chip in green with surface rendering. |
-| [macros/vis_chip_only.mac](macros/vis_chip_only.mac) | Hides world, cavity, and enclosure and displays the green chip in surface mode. Trajectories can still appear. |
-
-At the Geant4 prompt, choose one display preset, then run a few events to see trajectories. The two preset commands are alternatives.
-
-```text
-/control/execute ../macros/vis_wireframe.mac
-/control/execute ../macros/vis_chip_only.mac
-```
-
-```text
-/run/beamOn 5
-```
-
-For explicit proton and neutron colors, optionally customize the trajectory-model block in `build/vis.mac` after building, then start a fresh session from `build/`. CMake can restore the source version of this generated copy when it reconfigures. Replace the three active `drawByCharge` lines with the following commands. Keep the existing trajectory scene and accumulation commands.
-
-```text
-/vis/modeling/trajectories/create/drawByParticleID
-/vis/modeling/trajectories/drawByParticleID-0/set proton cyan
-/vis/modeling/trajectories/drawByParticleID-0/set neutron yellow
-```
-
-Qt/TSG wireframe rendering was demonstrated previously. A TSG segmentation fault was also reported during redraw after changing visualization attributes. Use wireframe if transparency is unstable. Apply presets to the existing scene and avoid repeated viewer setup, duplicate trajectory models, or extra scene notifications. Neither the optional color customization nor the interactive presets were rerun for this documentation update. A short display run may contain no visible neutron tracks.
-
-## Existing analysis scripts
-
-Both scripts use the Python standard library. From `LunarDevice/build/`, use the printed simulation output path with the analyzer, or run a thickness sweep:
+From `LunarDevice/build/`, the existing sweep script runs one batch process per thickness and logs each case in a fresh directory under `sweep_results/` by default.
 
 ```bash
-python3 ../scripts/analyze.py --dir "$out"
 python3 ../scripts/sweep_al.py --macro ../macros/run_log_smoke.mac --thicknesses 0 2 5 10
 ```
 
-- [analyze.py](scripts/analyze.py) reads all matching event and neutron CSVs in a directory. It prints entry fractions, reaction and neutron counts, energy deposition, dose, and basic neutron energy statistics. It pools matching run IDs within the directory and assumes a 100 MeV source and a 116.5 mg chip. It supplies no plotting or uncertainty estimates. Its summary behavior was inspected in source.
-- [sweep_al.py](scripts/sweep_al.py) runs one process per thickness, sets `LUNAR_AL_THICKNESS_MM` and `LUNAR_OUTPUT_DIR`, and saves `run.log` in a unique case directory under `sweep_results/` by default. Without `--macro`, it uses `../macros/run_log.mac`. The current detector **does read** the thickness variable. Previous 100-event verification used the runner with a diagnostic macro and confirmed geometry changes at 0, 2, 5, and 10 mm. The runner provides no seed management, automatic analysis, or general experiment schema.
-
-## Current capabilities and limitations
-
-| Status | Capability |
-| --- | --- |
-| Implemented and verified | Existing CMake/Ninja build, 100-event headless transport and silicon scoring, four worker-local CSV families with validated event counts and headers, 0/2/5/10 mm geometry and overlap checks, unique sweep directories, and rejection of reused output directories without changing existing CSVs. |
-| Implemented but unverified in recent tests | The 10,000-event logging macro, the basic batch macro's cut and two-run sequence, and the analyzer's summaries. Qt/TSG wireframe rendering has historical evidence. The current interactive presets and optional particle colors were not rerun. |
-| Known defects or limitations | Legacy B1 labels in the startup view, reported TSG redraw instability, repeat crossings in entry counts, direct neutron-step scoring only, and a simplified beam with no lunar flux normalization or device-response model. |
-| Planned | General experiment configuration, richer geometry and source models, ancestry tracking, and automated analysis and captures. |
+Pass a printed case directory to the analyzer for its summary. For the CSV schema and scoring details, see [the logging notes](README_LOGGING.md).
 
 ## Future development
 
