@@ -28,6 +28,7 @@
 
 #include "ActionInitialization.hh"
 #include "DetectorConstruction.hh"
+#include "LunarRecorder.hh"
 #include "QBBC.hh"
 
 #include "G4RunManagerFactory.hh"
@@ -37,18 +38,128 @@
 #include "G4VisExecutive.hh"
 // #include "Randomize.hh"
 
+#include <cstdlib>
+#include <filesystem>
+#include <iostream>
+#include <optional>
+#include <regex>
+#include <stdexcept>
+
 using namespace B1;
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
+namespace {
+namespace fs = std::filesystem;
+
+constexpr auto usage =
+  "Usage: lunar_device [--target [NAME] | --target=NAME] [--macro FILE | FILE]";
+
+struct Options {
+  // No value selects the environment or default. An empty value generates a name.
+  std::optional<std::string> target;
+  std::optional<std::string> macro;
+};
+
+Options ParseOptions(int argc, char** argv)
+{
+  Options options;
+  for (int i = 1; i < argc; ++i) {
+    const std::string arg = argv[i];
+    if (arg == "--target" || arg.compare(0, 9, "--target=") == 0) {
+      if (options.target) throw std::runtime_error("--target may only be specified once");
+      if (arg != "--target") {
+        options.target = arg.substr(9);
+        if (options.target->empty()) throw std::runtime_error("--target= requires a name");
+      } else {
+        options.target = "";
+        if (i + 1 < argc) {
+          const std::string next = argv[i + 1];
+          if (!next.empty() && next.front() != '-' && fs::path(next).extension() != ".mac") {
+            options.target = argv[++i];
+          }
+        }
+      }
+      continue;
+    }
+
+    std::string macro = arg;
+    if (arg == "--macro") {
+      if (++i == argc) throw std::runtime_error("--macro requires a filename");
+      macro = argv[i];
+    } else if (!arg.empty() && arg.front() == '-') {
+      throw std::runtime_error("Unknown option " + arg);
+    }
+    if (macro.empty() || macro.front() == '-' || options.macro) {
+      throw std::runtime_error("Specify one macro filename");
+    }
+    options.macro = macro;
+  }
+  return options;
+}
+
+void ConfigureOutput(const Options& options)
+{
+  const fs::path results = fs::path(LUNAR_PROJECT_ROOT) / "results";
+  const auto defaultPath = results / "res";
+  const char* env = std::getenv("LUNAR_OUTPUT_DIR");
+  if (!options.target && env && *env) {
+    const auto path = fs::weakly_canonical(fs::absolute(env));
+    if (path == fs::weakly_canonical(defaultPath)) {
+      throw std::runtime_error("LUNAR_OUTPUT_DIR cannot select the disposable results/res directory");
+    }
+    LunarRecorder::ConfigureOutput(path, false);
+    return;
+  }
+
+  if (fs::is_symlink(results)) {
+    throw std::runtime_error("Results root must be a directory, without a symbolic link: " +
+                             results.string());
+  }
+  if (!options.target) {
+    LunarRecorder::ConfigureOutput(defaultPath, true);
+  } else if (options.target->empty()) {
+    fs::create_directories(results);
+    auto pattern = (results / "run-XXXXXX").string();
+    const char* directory = mkdtemp(pattern.data());
+    if (!directory) throw std::runtime_error("Cannot create a unique directory in " + results.string());
+    LunarRecorder::ConfigureOutput(directory, false);
+  } else {
+    static const std::regex validName("[A-Za-z0-9][A-Za-z0-9_.-]*");
+    if (*options.target == "res" || !std::regex_match(*options.target, validName)) {
+      throw std::runtime_error("Invalid target name " + *options.target +
+                               " (use letters, digits, dots, underscores or hyphens; res is reserved)");
+    }
+    LunarRecorder::ConfigureOutput(results / *options.target, false);
+  }
+}
+}  // namespace
+
 int main(int argc, char** argv)
 {
-  // Detect interactive mode (if no arguments) and define UI session
-  //
-  G4UIExecutive* ui = nullptr;
-  if (argc == 1) {
-    ui = new G4UIExecutive(argc, argv);
+  if (argc == 2 && std::string(argv[1]) == "--help") {
+    std::cout << usage << '\n'
+              << "A bare --target generates a directory when followed by an option, a .mac file,"
+                 " or the end of the command line. Use --target=NAME for a name ending in .mac.\n";
+    return 0;
   }
+
+  Options options;
+  try {
+    options = ParseOptions(argc, argv);
+    if (options.macro && !fs::is_regular_file(*options.macro)) {
+      throw std::runtime_error("Cannot open macro " + *options.macro);
+    }
+    ConfigureOutput(options);
+  } catch (const std::exception& error) {
+    std::cerr << "lunar_device: " << error.what() << '\n' << usage << '\n';
+    return 1;
+  }
+
+  // Keep LunarDevice options out of Geant4's UI and visualization arguments.
+  int geantArgc = 1;
+  char* geantArgv[] = {argv[0], nullptr};
+  auto* ui = options.macro ? nullptr : new G4UIExecutive(geantArgc, geantArgv);
 
   // Optionally: choose a different Random engine...
   // G4Random::setTheEngine(new CLHEP::MTwistEngine);
@@ -75,7 +186,7 @@ int main(int argc, char** argv)
   runManager->SetUserInitialization(new ActionInitialization());
 
   // Initialize visualization with the default graphics system
-  auto visManager = new G4VisExecutive(argc, argv);
+  auto visManager = new G4VisExecutive(geantArgc, geantArgv);
   // Constructors can also take optional arguments:
   // - a graphics system of choice, eg. "OGL"
   // - and a verbosity argument - see /vis/verbose guidance.
@@ -88,18 +199,15 @@ int main(int argc, char** argv)
 
   // Process macro or start UI session
   //
-  if (!ui) {
-    // batch mode
-    G4String command = "/control/execute ";
-    G4String fileName = argv[1];
-    UImanager->ApplyCommand(command + fileName);
+  if (options.macro) {
+    UImanager->ExecuteMacroFile(options.macro->c_str());
   }
   else {
-    // interactive mode
     UImanager->ApplyCommand("/control/execute init_vis.mac");
-    ui->SessionStart();
+    if (UImanager->GetLastReturnCode() == 0) ui->SessionStart();
     delete ui;
   }
+  const int status = UImanager->GetLastReturnCode();
 
   // Job termination
   // Free the store: user actions, physics_list and detector_description are
@@ -108,6 +216,7 @@ int main(int argc, char** argv)
 
   delete visManager;
   delete runManager;
+  return status == 0 ? 0 : 1;
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo.....

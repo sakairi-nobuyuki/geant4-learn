@@ -1,12 +1,22 @@
 /run/verbose 2
 /run/initialize
 /control/execute vis.mac
-/vis/open
+/vis/open TSG
 /vis/sceneHandler/create TSG
 /vis/viewer/create ! ! 600x600-0+0
 /vis/viewer/refresh
 /vis/viewer/set/autoRefresh false
 /vis/verbose errors
+/vis/geometry/set/visibility World 0 false
+/vis/scene/notifyHandlers
+/vis/geometry/set/visibility Cavity 0 false
+/vis/scene/notifyHandlers
+/vis/geometry/set/forceWireframe AlCase 0 true
+/vis/scene/notifyHandlers
+/vis/geometry/set/colour AlCase 0 0.7 0.7 0.7 1
+/vis/scene/notifyHandlers
+/vis/geometry/set/colour Chip 0 0 1 0 1
+/vis/scene/notifyHandlers
 /vis/drawVolume
 /vis/scene/create
 /vis/scene/add/volume world -1 -1 none m 0 0 0 0 0 0
@@ -27,7 +37,7 @@
 /vis/scene/endOfEventAction accumulate
 /vis/set/textColour green
 /vis/set/textLayout right
-/vis/scene/add/text2D 0.9 -.9 24 ! ! exampleB1
+/vis/scene/add/text2D 0.9 -.9 24 ! ! lunar_device
 /vis/scene/notifyHandlers
 /vis/set/textLayout
 /vis/set/textColour
@@ -49,17 +59,11 @@
 /vis/scene/notifyHandlers
 /vis/set/colour
 /vis/set/lineWidth
-/vis/scene/add/text 0 6 -4 cm 18 4 4 Shape1
-/vis/scene/notifyHandlers
-/vis/scene/add/text 6 7 10 cm 18 4 4 Shape2
-/vis/scene/notifyHandlers
-/vis/geometry/set/visibility World 0 false
-/vis/scene/notifyHandlers
 /vis/viewer/set/style surface
 /vis/viewer/set/hiddenMarker true
 /vis/viewer/set/viewpointThetaPhi 120 150
 /vis/viewer/set/autoRefresh true
 /vis/viewer/refresh
 /vis/verbose warnings
-/run/beamOn 5
+/run/beamOn 1000
 /vis/scene/notifyHandlers scene-0

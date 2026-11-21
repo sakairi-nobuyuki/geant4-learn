@@ -39,6 +39,8 @@ class G4Run;
 namespace B1
 {
 
+class LunarRecorder;
+
 /// Run action class
 ///
 /// In EndOfRunAction(), it calculates the dose in the selected volume
@@ -54,9 +56,11 @@ class RunAction : public G4UserRunAction
     void BeginOfRunAction(const G4Run*) override;
     void EndOfRunAction(const G4Run*) override;
 
+    void SetRecorder(LunarRecorder& recorder) { fRecorder = &recorder; }
     void AddEdep(G4double edep);
 
   private:
+    LunarRecorder* fRecorder = nullptr;
     G4Accumulable<G4double> fEdep = 0.;
     G4Accumulable<G4double> fEdep2 = 0.;
 };

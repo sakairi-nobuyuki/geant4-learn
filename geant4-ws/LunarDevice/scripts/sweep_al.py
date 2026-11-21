@@ -9,7 +9,7 @@ from pathlib import Path
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--executable', default='./exampleB1')
+    parser.add_argument('--executable', default='./lunar_device')
     parser.add_argument('--macro', default='../macros/run_log.mac')
     parser.add_argument('--thicknesses', nargs='+', type=float,
                         default=[0, 1, 2, 5, 10])

@@ -14,6 +14,7 @@ void ActionInitialization::Build() const {
   SetUserAction(runAction);
   auto* eventAction = new LunarEventAction(runAction);
   SetUserAction(eventAction);
+  runAction->SetRecorder(eventAction->Recorder());
   SetUserAction(new LunarSteppingAction(eventAction, eventAction->Recorder()));
 }
 } // namespace B1

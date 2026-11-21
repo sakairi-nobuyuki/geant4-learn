@@ -3,6 +3,7 @@
 import argparse
 import csv
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -40,12 +41,19 @@ def records(paths, fields):
             raise SystemExit(f"Cannot analyze {path}: {error}") from error
 
 
+def worker_csvs(directory, family):
+    pattern = re.compile(rf"{family}_r[0-9]+_t-?[0-9]+\.csv")
+    return sorted(path for path in directory.glob(f"{family}_*.csv")
+                  if pattern.fullmatch(path.name))
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dir", default="results", type=Path,
-                        help="directory containing saved LunarDevice CSVs (default: results)")
+    default_dir = Path(__file__).resolve().parents[1] / "results" / "res"
+    parser.add_argument("--dir", default=default_dir, type=Path,
+                        help="directory containing CSVs (default: project results/res)")
     args = parser.parse_args()
-    event_paths = sorted(args.dir.glob("events_r*_t*.csv"))
+    event_paths = worker_csvs(args.dir, "events")
     if not event_paths:
         raise SystemExit(f"No event CSV files under {args.dir}.")
     events = []
@@ -62,7 +70,7 @@ def main():
     reaction = sum(row["proton_inelastic_in_Al"] for row in events)
     n_reaction_events = sum(row["proton_inelastic_in_Al"] > 0 for row in events)
     neutrons = sum(row["neutrons_created_in_Al"] for row in events)
-    neutron_paths = sorted(args.dir.glob("neutrons_r*_t*.csv"))
+    neutron_paths = worker_csvs(args.dir, "neutrons")
     expected_neutron_names = {
         path.name.replace("events_", "neutrons_", 1) for path in event_paths
     }
