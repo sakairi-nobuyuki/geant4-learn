@@ -10,7 +10,7 @@ With the Geant4 runtime configured and a working graphical display, start the vi
 
 ```bash
 cd /home/app/geant4-ws/LunarDevice/build
-./exampleB1
+./lunar_device
 ```
 
 Startup runs `init_vis.mac`, which initializes Geant4 and calls `vis.mac` to open the Qt/TSG viewer. The startup view shows the aluminum enclosure in wireframe and the silicon chip in green, with the world and vacuum cavity hidden. Opening the viewer generates zero Monte Carlo events and creates no CSVs. You can open it with saved CSVs already in `results/`.
@@ -29,43 +29,39 @@ To show only the chip or restore the enclosure, execute the corresponding preset
 /control/execute ../macros/vis_wireframe.mac
 ```
 
-`/control/execute ../vis_lunar.mac` also applies the wireframe preset to the open viewer. Qt/TSG startup was checked on the container display. Interactive camera changes and trajectory rendering were not exercised in that check. Prior redraw instability has been reported.
+`/control/execute ../vis_lunar.mac` also applies the wireframe preset to the open viewer. Qt/TSG startup and three consecutive interactive runs of 5, 10, and 20 events were verified on the container display.
 
 ## Run Monte Carlo
 
-Choose a fresh output directory before launching a process that will simulate. From `LunarDevice/build/`, start an interactive session with its output directory set.
+Run these commands from `LunarDevice/build/`. With no macro, the application waits at the Geant4 prompt. Enter `/run/beamOn N` to simulate N primary events. You can issue that command repeatedly in the same session.
 
-```bash
-out=$(mktemp -d)
-LUNAR_OUTPUT_DIR="$out" ./exampleB1
-```
+| Command | Output behavior |
+| --- | --- |
+| `./lunar_device` | Overwrite disposable results in `results/res/` when the first event starts |
+| `./lunar_device --target experiment_001` | Save a named experiment in `results/experiment_001/` |
+| `./lunar_device --target` | Generate a unique experiment directory |
+| `./lunar_device --macro run_lunar.mac` | Execute a batch macro with default output |
+| `./lunar_device --target --macro run_lunar.mac` | Execute a batch macro with a unique output directory |
 
-At the Geant4 prompt, type `/run/beamOn 5` and press Enter. `/run/beamOn N` requests N primary events. The viewer is configured to display trajectories after an explicit run.
+The table assumes `LUNAR_OUTPUT_DIR` is unset. CMake copies `run_lunar.mac` into the build directory. Use `../macros/run_log_smoke.mac` for a headless 100-event smoke test. The baseline macro runs two sets of 10,000 events with a 10 µm production range cut.
 
-For headless batch simulation, pass a macro argument. Use a fresh directory for each invocation. The baseline macro requests two 10,000-event runs and sets a 10 µm production range cut. The logging macro `../macros/run_log.mac` requests one 10,000-event run with reduced event and tracking verbosity.
+A macro can be positional. For example, use `./lunar_device ../run_lunar.mac`, `./lunar_device --target experiment_001 ../run_lunar.mac`, or `./lunar_device --target ../run_lunar.mac`. Bare `--target` generates a name at the end of the command line or before another option or a positional filename ending in `.mac`. Otherwise the next argument is the target name. Use `--target=NAME` for a name ending in `.mac`, and `--macro FILE` for a macro with any extension.
 
-```bash
-out=$(mktemp -d)
-LUNAR_OUTPUT_DIR="$out" ./exampleB1 ../run_lunar.mac
-printf '%s\n' "$out"
-```
+The application prints the output directory at startup. It selects it in this order.
 
-For the 100-event logging smoke test, use the following command. The macro needs no display or Qt platform setting.
+1. `--target` selects a protected directory under the project’s `results/`. Named targets start with an ASCII letter or digit and may also contain dots, underscores, and hyphens. The name `res` is reserved for disposable output.
+2. A nonempty `LUNAR_OUTPUT_DIR` selects a protected directory for compatibility with the sweep runner. Relative values resolve from the working directory. The disposable directory is reserved for default mode.
+3. With neither setting, the default is `LunarDevice/results/res/`, anchored to the project source directory configured by CMake.
 
-```bash
-out=$(mktemp -d)
-LUNAR_OUTPUT_DIR="$out" ./exampleB1 ../macros/run_log_smoke.mac >"$out/run.log" 2>&1
-printf '%s\n' "$out"
-```
-
-Batch mode executes the supplied macro. A macro can request events with `/run/beamOn` and visualization with commands such as `/vis/open`.
+Protected directories may already contain unrelated files such as a sweep log. Existing simulation CSVs cause startup to fail. A directory lock prevents two LunarDevice processes from using the same output directory at once.
 
 ## Analyze saved results
 
-From `LunarDevice/build/`, pass the saved CSV directory to the Python analyzer. For the batch examples above, use the printed directory as `out`. For files written to the default location, use `--dir results`.
+From `LunarDevice/build/`, run the analyzer with no options for disposable results, or pass a saved directory with `--dir`.
 
 ```bash
-python3 ../scripts/analyze.py --dir "$out"
+python3 ../scripts/analyze.py
+python3 ../scripts/analyze.py --dir ../results/experiment_001
 ```
 
 The analyzer reads all matching event and neutron worker CSVs, pools run IDs within the input directory, and prints statistics to standard output. Rerun the command to regenerate the summary. It uses only the Python standard library and creates no files. The summary includes entry fractions, reaction and neutron counts, silicon energy deposition, absorbed dose, and neutron energy statistics when birth records are available. The calculation assumes a 100 MeV proton source and a 116.5 mg chip.
@@ -116,13 +112,15 @@ cmake -S . -B build -G Ninja \
 cmake --build build
 ```
 
-[CMakeLists.txt](CMakeLists.txt) finds Geant4 with `ui_all` and `vis_all`, compiles the application target `exampleB1`, and copies `init_vis.mac` and `vis.mac` into `build/` using `configure_file(COPYONLY)`. Edit the source macros and run `cmake --build build -j 4` to refresh the copies through CMake regeneration. The executable reads the startup macros relative to its working directory. The commands above refer directly to the source copies of the batch and preset macros.
+[CMakeLists.txt](CMakeLists.txt) finds Geant4 with `ui_all` and `vis_all`, compiles the application target `lunar_device`, and copies `init_vis.mac`, `vis.mac`, and `run_lunar.mac` into `build/` using `configure_file(COPYONLY)`. Edit the source macros and run `cmake --build build -j 4` to refresh the copies through CMake regeneration. The executable reads the startup macros relative to its working directory. Commands starting with `../` use the source copies of the macros.
+
+CMake also copies the optional B1 macros `run1.mac` and `run2.mac`. They override the default particle type and energy, so use the LunarDevice macros above for the standard 100 MeV proton runs.
 
 ## CSV output
 
-[LunarRecorder.cc](src/LunarRecorder.cc) opens files when a worker starts its first event of a run. It uses `LUNAR_OUTPUT_DIR`, or `results/` relative to the working directory if unset or empty. Names end in `_r<run ID>_t<Geant4 thread ID>.csv`. For one case, read every file of each family with a CSV parser and retain the run and event IDs plus the worker ID from the filename if needed. Keep independent processes in separate directories because their IDs can repeat. Use event rows, including zero-deposit events, as the denominator for per-primary rates. Reaction, birth, and crossing files can contain just a header.
+Each worker opens its files at its first event and flushes and closes them at the end of its run. Filenames include the Geant4 run and worker IDs. Each new process starts again at run zero. Read all worker files in the selected directory and use all event rows, including zero-deposit events, as the denominator for per-primary rates. Reaction, birth, and crossing files may contain only a header. [LunarRecorder.cc](src/LunarRecorder.cc)
 
-The recorder checks the output directory when processing the first event and reserves it with a `.lunar-run` marker. Existing LunarDevice CSVs or a reservation trigger the fatal `LunarOutput001` error before any saved CSV is overwritten. Use a fresh directory for each process, including after an interrupted run. Consecutive runs within the same process share the directory and use distinct run IDs. Analyze saved data after the process exits so worker streams have closed.
+At its first event, a default-mode process removes regular CSVs matching the four LunarDevice filename formats in `results/res/`. This clears previous run and worker IDs, including IDs the new process may never use. Later runs in the same process keep their own files. Starting the viewer and exiting before a simulation leaves existing CSVs untouched. Analyze results after the runs of interest complete.
 
 Headers below are in file order. Fields ending in `_MeV` contain energies in MeV and fields ending in `_mm` contain world positions in mm. IDs, counts, and flags are unitless. The neutron direction components are dimensionless.
 

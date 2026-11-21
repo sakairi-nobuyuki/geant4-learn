@@ -128,17 +128,17 @@ No physically normalized lunar dose rate or SEE/SEU/SEL probability follows dire
 
 ```text
 B1-derived source + run_lunar.mac
-    -> CMake/Ninja executable
+    -> CMake/Ninja executable lunar_device
     -> Geant4 primary generation
     -> geometry navigation and particle transport
     -> energy-deposition scoring
-    -> run summary (stdout/log)
+    -> run summary (stdout/log) and worker-local CSVs
 ```
 
 ### Current interactive viewing flow
 
 ```text
-exampleB1 in interactive mode
+lunar_device in interactive mode
     -> init_vis.mac
     -> vis.mac opens a viewer and configures scene/tracks
     -> optional vis_wireframe.mac or vis_chip_only.mac changes visibility

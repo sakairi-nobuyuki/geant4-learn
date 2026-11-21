@@ -1,0 +1,11 @@
+/build/
+/results/
+/sweep_results/
+G4History.macro
+*.log
+__pycache__/
+events_r*_t*.csv
+reactions_r*_t*.csv
+neutrons_r*_t*.csv
+crossings_r*_t*.csv
+.lunar-run/

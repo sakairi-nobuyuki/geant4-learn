@@ -13,9 +13,14 @@
 #include "G4VProcess.hh"
 #include "G4ios.hh"
 
-#include <cstdlib>
 #include <filesystem>
 #include <iomanip>
+#include <mutex>
+#include <regex>
+
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
 #include <stdexcept>
 #include <string>
 
@@ -27,34 +32,46 @@ namespace {
   std::string ProcessName(const G4VProcess* process) {
     return process ? std::string(process->GetProcessName()) : "none";
   }
-  const std::filesystem::path& OutputFolder() {
-    // Function-local static initialization reserves the directory once per process.
-    static const auto folder = [] {
-      const char* env = std::getenv("LUNAR_OUTPUT_DIR");
-      const std::filesystem::path path = env && *env ? env : "results";
-      std::filesystem::create_directories(path);
-      for (const auto& entry : std::filesystem::directory_iterator(path)) {
-        const auto name = entry.path().filename().string();
-        if (entry.path().extension() == ".csv" &&
-            (name.rfind("events_r", 0) == 0 || name.rfind("reactions_r", 0) == 0 ||
-             name.rfind("neutrons_r", 0) == 0 || name.rfind("crossings_r", 0) == 0)) {
-          throw std::runtime_error("Lunar CSVs already exist in " + path.string() +
-                                   "; choose a fresh LUNAR_OUTPUT_DIR");
-        }
-      }
-      if (!std::filesystem::create_directory(path / ".lunar-run")) {
-        throw std::runtime_error("Lunar output directory already reserved: " + path.string() +
-                                 "; choose a fresh LUNAR_OUTPUT_DIR");
-      }
-      return path;
-    }();
-    return folder;
+  namespace fs = std::filesystem;
+
+  struct OutputDirectory {
+    fs::path path;
+    int descriptor = -1;
+    bool disposable = false;
+    std::once_flag prepared;
+
+    ~OutputDirectory() {
+      if (descriptor != -1) close(descriptor);
+    }
+  };
+
+  OutputDirectory output;
+
+  bool IsLunarCsv(const fs::path& path) {
+    static const std::regex pattern(
+      R"((events|reactions|neutrons|crossings)_r[0-9]+_t-?[0-9]+\.csv)");
+    return std::regex_match(path.filename().string(), pattern);
   }
+
+  const fs::path& OutputFolder() {
+    std::call_once(output.prepared, [] {
+      if (!output.disposable) return;
+      for (const auto& entry : fs::directory_iterator(output.path)) {
+        if (!IsLunarCsv(entry.path())) continue;
+        if (!fs::is_regular_file(entry.symlink_status())) {
+          throw std::runtime_error("Expected a regular Lunar CSV: " + entry.path().string());
+        }
+        fs::remove(entry.path());
+      }
+    });
+    return output.path;
+  }
+
   void Open(std::ofstream& file, const std::filesystem::path& path,
             const std::string& header) {
     if (std::filesystem::symlink_status(path).type() != std::filesystem::file_type::not_found) {
       throw std::runtime_error("Lunar CSV already exists: " + path.string() +
-                               "; choose a fresh LUNAR_OUTPUT_DIR");
+                               "; refusing to overwrite it");
     }
     file.open(path, std::ios::out | std::ios::trunc);
     if (!file) throw std::runtime_error("Cannot write CSV: " + path.string());
@@ -62,8 +79,45 @@ namespace {
   }
 }
 
+void LunarRecorder::ConfigureOutput(const fs::path& path, bool disposable) {
+  fs::create_directories(path);
+  // Hold a process-wide lock on the directory itself. The OS releases it on exit.
+  output.descriptor = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+  if (output.descriptor == -1) {
+    throw std::runtime_error("Cannot open output directory: " + path.string());
+  }
+  if (flock(output.descriptor, LOCK_EX | LOCK_NB) == -1) {
+    throw std::runtime_error("Cannot reserve output directory (possibly in use): " + path.string());
+  }
+
+  if (!disposable) {
+    for (const auto& entry : fs::directory_iterator(path)) {
+      if (IsLunarCsv(entry.path())) {
+        throw std::runtime_error("Lunar CSVs already exist in " + path.string() +
+                                 "; choose a fresh output directory");
+      }
+    }
+  }
+  output.path = path;
+  output.disposable = disposable;
+  G4cout << "Lunar output directory: " << path.string() << G4endl;
+}
+
+void LunarRecorder::CloseFiles() {
+  for (auto* file : {&fEvents, &fReactions, &fNeutrons, &fCrossings}) {
+    if (!file->is_open()) continue;
+    file->close();
+    if (!*file) {
+      const auto message = "Cannot finish writing Lunar CSVs in " + output.path.string() +
+                           " for run " + std::to_string(fRunId) + ", thread " +
+                           std::to_string(G4Threading::G4GetThreadId());
+      G4Exception("LunarRecorder::CloseFiles", "LunarOutput002", FatalException, message.c_str());
+    }
+  }
+  fRunId = -1;
+}
+
 void LunarRecorder::OpenFiles(G4int runId) {
-  fEvents.close(); fReactions.close(); fNeutrons.close(); fCrossings.close();
   const auto& folder = OutputFolder();
   const auto suffix = "_r" + std::to_string(runId) + "_t" +
                       std::to_string(G4Threading::G4GetThreadId()) + ".csv";

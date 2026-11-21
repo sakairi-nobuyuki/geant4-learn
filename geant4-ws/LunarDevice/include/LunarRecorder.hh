@@ -3,6 +3,7 @@
 
 #include "G4ThreeVector.hh"
 #include "globals.hh"
+#include <filesystem>
 #include <fstream>
 
 class G4Event;
@@ -13,6 +14,8 @@ namespace B1 {
 // One instance per Geant4 worker. No shared CSV file is written by two threads.
 class LunarRecorder {
 public:
+  static void ConfigureOutput(const std::filesystem::path& path, bool disposable);
+  void CloseFiles();
   void BeginEvent(const G4Event* event);
   void ProcessStep(const G4Step* step);
   void EndEvent(const G4Event* event);

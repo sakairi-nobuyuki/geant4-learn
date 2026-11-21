@@ -20,25 +20,24 @@ file(GLOB headers ${PROJECT_SOURCE_DIR}/include/*.hh)
 #----------------------------------------------------------------------------
 # Add the executable, use our local headers, and link it to the Geant4 libraries
 #
-add_executable(exampleB1 exampleB1.cc ${sources} ${headers})
-target_include_directories(exampleB1 PRIVATE include)
-target_link_libraries(exampleB1 PRIVATE ${Geant4_LIBRARIES})
+add_executable(lunar_device exampleB1.cc ${sources} ${headers})
+target_compile_features(lunar_device PRIVATE cxx_std_17)
+target_compile_definitions(lunar_device PRIVATE LUNAR_PROJECT_ROOT="${PROJECT_SOURCE_DIR}")
+target_include_directories(lunar_device PRIVATE include)
+target_link_libraries(lunar_device PRIVATE ${Geant4_LIBRARIES})
 
 #----------------------------------------------------------------------------
-# Copy all scripts to the build directory, i.e. the directory in which we
-# build B1. This is so that we can run the executable directly because it
-# relies on these scripts being in the current working directory.
+# Copy startup, baseline batch, and optional B1 diagnostic macros to the build directory.
 #
-set(EXAMPLEB1_SCRIPTS
-  exampleB1.in
-  exampleB1.out
+set(LUNAR_DEVICE_SCRIPTS
   init_vis.mac
   run1.mac
   run2.mac
+  run_lunar.mac
   vis.mac
   )
 
-foreach(_script ${EXAMPLEB1_SCRIPTS})
+foreach(_script ${LUNAR_DEVICE_SCRIPTS})
   configure_file(
     ${PROJECT_SOURCE_DIR}/${_script}
     ${PROJECT_BINARY_DIR}/${_script}

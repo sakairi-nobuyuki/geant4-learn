@@ -29,6 +29,7 @@
 #include "RunAction.hh"
 
 #include "DetectorConstruction.hh"
+#include "LunarRecorder.hh"
 #include "PrimaryGeneratorAction.hh"
 
 #include "G4AccumulableManager.hh"
@@ -81,6 +82,8 @@ void RunAction::BeginOfRunAction(const G4Run*)
 
 void RunAction::EndOfRunAction(const G4Run* run)
 {
+  if (fRecorder) fRecorder->CloseFiles();
+
   G4int nofEvents = run->GetNumberOfEvent();
   if (nofEvents == 0) return;
 

@@ -30,14 +30,15 @@ From the configured build directory inside the Geant4 container, run the 100-eve
 
 ```bash
 cd /home/app/geant4-ws/LunarDevice/build
-out=$(mktemp -d)
-LUNAR_OUTPUT_DIR="$out" ./exampleB1 ../macros/run_log_smoke.mac
-python3 ../scripts/analyze.py --dir "$out"
+./lunar_device --target smoke_check --macro ../macros/run_log_smoke.mac
+python3 ../scripts/analyze.py --dir ../results/smoke_check
 ```
 
-For 10,000 events, use `../macros/run_log.mac` with a fresh `out`. Invoking `./exampleB1` opens the viewer and waits for an explicit simulation command. To record events interactively, set `LUNAR_OUTPUT_DIR` before starting the viewer and issue `/run/beamOn N` at its prompt.
+Use a fresh name each time, or let `./lunar_device --target --macro ../macros/run_log_smoke.mac` create and print a unique directory. For 10,000 events, use `../macros/run_log.mac`. For interactive use, launch `./lunar_device` and enter `/run/beamOn N` at the prompt.
 
-The default output is `results/` relative to the process working directory. The recorder reserves it with a `.lunar-run` marker at the first event and rejects directories that already have that marker or LunarDevice CSVs. Consecutive runs in one process use distinct run IDs in the same directory. Analyze completed outputs after the simulation process exits. The analyzer reads all event and neutron worker files and prints its summary to standard output.
+Output selection gives precedence to `--target`, then a nonempty `LUNAR_OUTPUT_DIR` for compatibility with the sweep runner, then the project-relative default `results/res/`. Named and environment-selected directories protect existing simulation CSVs. The disposable default clears CSVs matching the four documented filename formats at the first event of each process, including files for previous runs and workers. Other files remain in place.
+
+Each worker opens four CSVs at its first event and closes them at the end of the run. Consecutive runs share the directory and use distinct run IDs. Analyze the completed outputs from all workers and runs in the directory. See the full command syntax and output rules. [LunarDevice README](README.md#run-monte-carlo)
 
 ## Interaction visualization
 
