@@ -1,0 +1,7 @@
+# Select at startup with --vis-macro.
+/run/initialize
+/control/execute macros/vis_chip_transparent.mac
+/control/execute vis.mac
+/tracking/storeTrajectory 0
+/vis/viewer/set/autoRefresh true
+/vis/verbose warnings

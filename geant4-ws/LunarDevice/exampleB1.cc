@@ -29,6 +29,7 @@
 #include "ActionInitialization.hh"
 #include "DetectorConstruction.hh"
 #include "LunarRecorder.hh"
+#include "ParticleEnergyVisualization.hh"
 #include "QBBC.hh"
 
 #include "G4RunManagerFactory.hh"
@@ -53,12 +54,17 @@ namespace {
 namespace fs = std::filesystem;
 
 constexpr auto usage =
-  "Usage: lunar_device [--target [NAME] | --target=NAME] [--macro FILE | FILE]";
+  "Usage: lunar_device [--target [NAME] | --target=NAME] "
+  "[--vis-chip transparent|wireframe] "
+  "[--vis-mode particle_type|particle_energy|charge | --vis-macro FILE | --macro FILE | FILE]";
 
 struct Options {
   // No value selects the environment or default. An empty value generates a name.
   std::optional<std::string> target;
   std::optional<std::string> macro;
+  std::optional<std::string> visMacro;
+  std::optional<std::string> visMode;
+  std::optional<std::string> visChip;
 };
 
 Options ParseOptions(int argc, char** argv)
@@ -83,6 +89,38 @@ Options ParseOptions(int argc, char** argv)
       continue;
     }
 
+    if (arg == "--vis-mode") {
+      if (++i == argc || options.visMode) {
+        throw std::runtime_error("--vis-mode requires one mode");
+      }
+      const std::string mode = argv[i];
+      if (mode != "particle_type" && mode != "particle_energy" && mode != "charge") {
+        throw std::runtime_error("Unknown visualization mode " + mode);
+      }
+      options.visMode = mode;
+      continue;
+    }
+
+    if (arg == "--vis-chip") {
+      if (++i == argc || options.visChip) {
+        throw std::runtime_error("--vis-chip requires one appearance");
+      }
+      const std::string appearance = argv[i];
+      if (appearance != "transparent" && appearance != "wireframe") {
+        throw std::runtime_error("Unknown chip appearance " + appearance);
+      }
+      options.visChip = appearance;
+      continue;
+    }
+
+    if (arg == "--vis-macro") {
+      if (++i == argc || options.visMacro || std::string(argv[i]).empty() || argv[i][0] == '-') {
+        throw std::runtime_error("--vis-macro requires one startup macro filename");
+      }
+      options.visMacro = argv[i];
+      continue;
+    }
+
     std::string macro = arg;
     if (arg == "--macro") {
       if (++i == argc) throw std::runtime_error("--macro requires a filename");
@@ -94,6 +132,15 @@ Options ParseOptions(int argc, char** argv)
       throw std::runtime_error("Specify one macro filename");
     }
     options.macro = macro;
+  }
+  if (options.macro && options.visMacro) {
+    throw std::runtime_error("Choose either an interactive startup macro or a batch macro");
+  }
+  if (options.visMode && (options.macro || options.visMacro)) {
+    throw std::runtime_error("--vis-mode selects the built-in interactive startup");
+  }
+  if (options.visChip && (options.macro || options.visMacro)) {
+    throw std::runtime_error("--vis-chip selects an appearance for the built-in interactive startup");
   }
   return options;
 }
@@ -150,6 +197,9 @@ int main(int argc, char** argv)
     if (options.macro && !fs::is_regular_file(*options.macro)) {
       throw std::runtime_error("Cannot open macro " + *options.macro);
     }
+    if (options.visMacro && !fs::is_regular_file(*options.visMacro)) {
+      throw std::runtime_error("Cannot open macro " + *options.visMacro);
+    }
     ConfigureOutput(options);
   } catch (const std::exception& error) {
     std::cerr << "lunar_device: " << error.what() << '\n' << usage << '\n';
@@ -182,9 +232,6 @@ int main(int argc, char** argv)
   physicsList->SetVerboseLevel(1);
   runManager->SetUserInitialization(physicsList);
 
-  // User action initialization
-  runManager->SetUserInitialization(new ActionInitialization());
-
   // Initialize visualization with the default graphics system
   auto visManager = new G4VisExecutive(geantArgc, geantArgv);
   // Constructors can also take optional arguments:
@@ -193,6 +240,8 @@ int main(int argc, char** argv)
   // auto visManager = new G4VisExecutive(argc, argv, "OGL", "Quiet");
   // auto visManager = new G4VisExecutive("Quiet");
   visManager->Initialize();
+  ParticleEnergyVisualization visualization(*visManager);
+  runManager->SetUserInitialization(new ActionInitialization(visualization));
 
   // Get the pointer to the User Interface manager
   auto UImanager = G4UImanager::GetUIpointer();
@@ -203,7 +252,11 @@ int main(int argc, char** argv)
     UImanager->ExecuteMacroFile(options.macro->c_str());
   }
   else {
-    UImanager->ApplyCommand("/control/execute init_vis.mac");
+    UImanager->ApplyCommand("/control/alias lunarVisMode " +
+                            options.visMode.value_or("particle_type"));
+    UImanager->ApplyCommand("/control/alias lunarVisChip " +
+                            options.visChip.value_or("transparent"));
+    UImanager->ExecuteMacroFile(options.visMacro.value_or("init_vis.mac").c_str());
     if (UImanager->GetLastReturnCode() == 0) ui->SessionStart();
     delete ui;
   }

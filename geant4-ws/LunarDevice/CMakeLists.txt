@@ -14,8 +14,8 @@ find_package(Geant4 REQUIRED ui_all vis_all)
 # Locate sources and headers for this project
 # NB: headers are included so they will show up in IDEs
 #
-file(GLOB sources ${PROJECT_SOURCE_DIR}/src/*.cc)
-file(GLOB headers ${PROJECT_SOURCE_DIR}/include/*.hh)
+file(GLOB sources CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.cc)
+file(GLOB headers CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/include/*.hh)
 
 #----------------------------------------------------------------------------
 # Add the executable, use our local headers, and link it to the Geant4 libraries
@@ -35,6 +35,12 @@ set(LUNAR_DEVICE_SCRIPTS
   run2.mac
   run_lunar.mac
   vis.mac
+  macros/vis_particle_type.mac
+  macros/vis_particle_energy.mac
+  macros/vis_charge.mac
+  macros/vis_chip_transparent.mac
+  macros/vis_chip_wireframe.mac
+  macros/vis_geometry_only.mac
   )
 
 foreach(_script ${LUNAR_DEVICE_SCRIPTS})

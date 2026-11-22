@@ -34,16 +34,22 @@
 namespace B1
 {
 
+class ParticleEnergyVisualization;
+
 /// Action initialization class.
 
 class ActionInitialization : public G4VUserActionInitialization
 {
   public:
-    ActionInitialization() = default;
+    explicit ActionInitialization(const ParticleEnergyVisualization& visualization)
+      : fVisualization(visualization) {}
     ~ActionInitialization() override = default;
 
     void BuildForMaster() const override;
     void Build() const override;
+
+  private:
+    const ParticleEnergyVisualization& fVisualization;
 };
 
 }  // namespace B1
