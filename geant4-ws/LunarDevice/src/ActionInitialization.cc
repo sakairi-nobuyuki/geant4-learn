@@ -1,6 +1,7 @@
 #include "ActionInitialization.hh"
 #include "LunarEventAction.hh"
 #include "LunarSteppingAction.hh"
+#include "ParticleEnergyVisualization.hh"
 #include "PrimaryGeneratorAction.hh"
 #include "RunAction.hh"
 
@@ -16,5 +17,6 @@ void ActionInitialization::Build() const {
   SetUserAction(eventAction);
   runAction->SetRecorder(eventAction->Recorder());
   SetUserAction(new LunarSteppingAction(eventAction, eventAction->Recorder()));
+  SetUserAction(new ParticleEnergyTrackingAction(fVisualization));
 }
 } // namespace B1

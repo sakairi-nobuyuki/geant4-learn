@@ -1,0 +1,12 @@
+# Particle identity sets the trajectory color.
+/vis/modeling/trajectories/create/drawByParticleID
+/vis/modeling/trajectories/drawByParticleID-0/set proton cyan
+/vis/modeling/trajectories/drawByParticleID-0/set neutron yellow
+/vis/modeling/trajectories/drawByParticleID-0/set gamma green
+/vis/modeling/trajectories/drawByParticleID-0/set e- red
+/vis/modeling/trajectories/drawByParticleID-0/set e+ magenta
+# Geant4 preassigns pion colors, so set them to the palette's fallback too.
+/vis/modeling/trajectories/drawByParticleID-0/set pi+ grey
+/vis/modeling/trajectories/drawByParticleID-0/set pi- grey
+/vis/modeling/trajectories/drawByParticleID-0/setDefault grey
+/vis/modeling/trajectories/select drawByParticleID-0

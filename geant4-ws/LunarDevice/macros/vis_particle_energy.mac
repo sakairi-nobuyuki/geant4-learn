@@ -1,0 +1,3 @@
+# Configure before /run/initialize. Bounds are in MeV.
+/lunar/vis/particleEnergy 0.01 1000
+/vis/modeling/trajectories/select particle_energy

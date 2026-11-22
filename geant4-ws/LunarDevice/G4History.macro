@@ -1,22 +1,32 @@
 /run/verbose 2
+/control/execute macros/vis_particle_type.mac
+/vis/modeling/trajectories/create/drawByParticleID
+/vis/modeling/trajectories/drawByParticleID-0/set proton cyan
+/vis/modeling/trajectories/drawByParticleID-0/set neutron yellow
+/vis/modeling/trajectories/drawByParticleID-0/set gamma green
+/vis/modeling/trajectories/drawByParticleID-0/set e- red
+/vis/modeling/trajectories/drawByParticleID-0/set e+ magenta
+/vis/modeling/trajectories/drawByParticleID-0/set pi+ grey
+/vis/modeling/trajectories/drawByParticleID-0/set pi- grey
+/vis/modeling/trajectories/drawByParticleID-0/setDefault grey
+/vis/modeling/trajectories/select drawByParticleID-0
 /run/initialize
+/control/execute macros/vis_chip_transparent.mac
+/vis/geometry/set/visibility AlCase 0 true
+/vis/geometry/set/forceWireframe AlCase 0 true
+/vis/geometry/set/colour AlCase 0 0.7 0.7 0.7 1
+/vis/geometry/set/visibility Chip 0 true
+/vis/geometry/set/forceSolid Chip 0 true
+/vis/geometry/set/colour Chip 0 0.2 0.5 1.0 0.2
 /control/execute vis.mac
-/vis/open TSG
-/vis/sceneHandler/create TSG
+/vis/verbose errors
+/vis/geometry/set/visibility World 0 false
+/vis/geometry/set/visibility Cavity 0 false
+/vis/open TSG_QT_GLES
+/vis/sceneHandler/create TSG_QT_GLES
 /vis/viewer/create ! ! 600x600-0+0
 /vis/viewer/refresh
 /vis/viewer/set/autoRefresh false
-/vis/verbose errors
-/vis/geometry/set/visibility World 0 false
-/vis/scene/notifyHandlers
-/vis/geometry/set/visibility Cavity 0 false
-/vis/scene/notifyHandlers
-/vis/geometry/set/forceWireframe AlCase 0 true
-/vis/scene/notifyHandlers
-/vis/geometry/set/colour AlCase 0 0.7 0.7 0.7 1
-/vis/scene/notifyHandlers
-/vis/geometry/set/colour Chip 0 0 1 0 1
-/vis/scene/notifyHandlers
 /vis/drawVolume
 /vis/scene/create
 /vis/scene/add/volume world -1 -1 none m 0 0 0 0 0 0
@@ -26,15 +36,7 @@
 /vis/viewer/set/style wireframe
 /vis/viewer/set/auxiliaryEdge true
 /vis/viewer/set/lineSegmentsPerCircle 100
-/vis/scene/add/trajectories smooth
-/tracking/storeTrajectory 2
-/vis/scene/notifyHandlers
-/vis/modeling/trajectories/create/drawByCharge
-/vis/modeling/trajectories/drawByCharge-0/default/setDrawStepPts true
-/vis/scene/notifyHandlers scene-0
-/vis/modeling/trajectories/drawByCharge-0/default/setStepPtsSize 2
-/vis/scene/notifyHandlers scene-0
-/vis/scene/endOfEventAction accumulate
+/vis/scene/endOfEventAction accumulate 100
 /vis/set/textColour green
 /vis/set/textLayout right
 /vis/scene/add/text2D 0.9 -.9 24 ! ! lunar_device
@@ -62,8 +64,21 @@
 /vis/viewer/set/style surface
 /vis/viewer/set/hiddenMarker true
 /vis/viewer/set/viewpointThetaPhi 120 150
+/vis/scene/add/trajectories smooth
+/tracking/storeTrajectory 2
+/vis/scene/notifyHandlers
 /vis/viewer/set/autoRefresh true
 /vis/viewer/refresh
 /vis/verbose warnings
-/run/beamOn 1000
+/run/beamOn 100
 /vis/scene/notifyHandlers scene-0
+/gun/energy 50 MeV
+/run/beamOn 100
+/gun/energy 10 MeV
+/run/beamOn 100
+/gun/particle neutron
+/gun/energy 10 MeV
+/run/beamOn 100
+/run/beamOn 50
+/gun/energy 5 MeV
+/run/beamOn 50

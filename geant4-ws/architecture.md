@@ -225,6 +225,8 @@ Prefer a stable detector/geometry loader to generating and compiling a new `Dete
 
 Current known-good workflow: Qt/TSG, aluminum as gray wireframe, silicon as green solid, trajectories optionally colored by particle type. Avoid repeatedly adding trajectory models or opening viewers. `TSG_OFFSCREEN` may enable unattended PNG capture if supported by the built Geant4 installation, but this remains to be smoke-tested in the Docker image.
 
+The `particle_energy` startup preset installs a native `G4VTrajectoryModel` and enables a visualization tracking action. When Geant4 requests trajectory storage, the action supplies a trajectory that owns its point positions and the incoming kinetic energy for each segment. The trajectory follows Geant4's per-event lifetime and supports merging resumed tracks. During rendering, the model converts those energies to brightness and submits opaque `G4Polyline` runs of matching color to the current viewer. The controller and model are configured before run initialization. Trajectory capture uses the tracking-action extension point and CSV recording continues through the existing scoring actions.
+
 For reproducible future captures, record the graphics driver, resolution, camera, visibility/colors, random seed, event count, and output path. A clean geometry image and a small event-track image should be separate outputs for each case. Screenshot differences are not quantitative physical results.
 
 ## 11. Verification strategy

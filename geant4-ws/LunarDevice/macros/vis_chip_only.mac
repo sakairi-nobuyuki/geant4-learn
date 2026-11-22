@@ -4,7 +4,6 @@
 /vis/geometry/set/visibility Cavity 0 false
 /vis/geometry/set/visibility AlCase 0 false
 /vis/geometry/set/visibility Chip 0 true
-/vis/geometry/set/colour Chip 0 0 1 0 1
 /vis/viewer/set/style surface
 /vis/viewer/set/autoRefresh true
 /vis/scene/notifyHandlers

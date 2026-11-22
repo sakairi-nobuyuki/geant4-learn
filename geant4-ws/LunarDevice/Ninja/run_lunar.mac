@@ -1,0 +1,12 @@
+/run/setCut 10 um
+/run/initialize
+
+/run/beamOn 10000
+
+/run/initialize
+
+/run/verbose 1
+/event/verbose 0
+/tracking/verbose 0
+
+/run/beamOn 10000

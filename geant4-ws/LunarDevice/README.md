@@ -13,7 +13,7 @@ cd /home/app/geant4-ws/LunarDevice/build
 ./lunar_device
 ```
 
-Startup runs `init_vis.mac`, which initializes Geant4 and calls `vis.mac` to open the Qt/TSG viewer. The startup view shows the aluminum enclosure in wireframe and the silicon chip in green, with the world and vacuum cavity hidden. Opening the viewer generates zero Monte Carlo events and creates no CSVs. You can open it with saved CSVs already in `results/`.
+Startup runs `init_vis.mac`, which selects particle-type coloring, initializes Geant4, and applies the chip appearance before `vis.mac` opens the `TSG_QT_GLES` viewer. The aluminum enclosure is a gray wireframe and the silicon chip is a translucent blue solid with opacity 0.2. The world and vacuum cavity are hidden. Opening the viewer generates zero events and creates no CSVs. Enter `/run/beamOn 100` at the Geant4 prompt to display tracks.
 
 Enter these commands at the Geant4 prompt to set a camera angle and zoom in.
 
@@ -22,6 +22,24 @@ Enter these commands at the Geant4 prompt to set a camera angle and zoom in.
 /vis/viewer/zoom 1.5
 ```
 
+Choose the chip appearance at startup from the build directory. Either option can be combined with `--vis-mode`.
+
+```bash
+./lunar_device --vis-chip transparent
+./lunar_device --vis-chip wireframe
+```
+
+The wireframe preset uses a blue outline for the chip. Use it if the translucent surface is hard to read or redraw is unstable on your display. In an open viewer, apply an appearance before generating events. Enter the first command, one of the two macro commands, and then the last command to redraw once.
+
+```text
+/vis/viewer/set/autoRefresh false
+/control/execute macros/vis_chip_transparent.mac
+/control/execute macros/vis_chip_wireframe.mac
+/vis/viewer/set/autoRefresh true
+```
+
+Use the CSV logs for quantitative evidence about recorded interactions. A track seen near or through the chip alone cannot establish that a nuclear reaction occurred in silicon.
+
 To show only the chip or restore the enclosure, execute the corresponding preset from the open viewer. The enclosure preset is for positive aluminum thickness.
 
 ```text
@@ -29,7 +47,39 @@ To show only the chip or restore the enclosure, execute the corresponding preset
 /control/execute ../macros/vis_wireframe.mac
 ```
 
-`/control/execute ../vis_lunar.mac` also applies the wireframe preset to the open viewer. Qt/TSG startup and three consecutive interactive runs of 5, 10, and 20 events were verified on the container display.
+`/control/execute ../vis_lunar.mac` also restores the enclosure outline in the open viewer.
+
+## Choose a trajectory display
+
+From `LunarDevice/build/`, choose a mode at startup.
+
+| Display | Command |
+| --- | --- |
+| Particle type (default) | `./lunar_device` or `./lunar_device --vis-mode particle_type` |
+| Particle type and kinetic energy | `./lunar_device --vis-mode particle_energy` |
+| Electric charge | `./lunar_device --vis-mode charge` |
+| Geometry only | `./lunar_device --vis-macro macros/vis_geometry_only.mac` |
+
+Enter `/run/beamOn 20` at the Geant4 prompt to simulate 20 events. The trajectory presets select one drawing model, attach one trajectory model to the shared geometry scene, and enable auto-refresh after setup. The standard Geant4 charge model groups trajectories by negative, neutral, or positive charge.
+
+Choose the mode before generating events. To switch among all three modes, start a fresh session. Energy coloring enables custom trajectory recording before kernel initialization, and previously recorded standard trajectories lack the per-step energies. The mode macros are startup modules. Re-executing them at the prompt can register additional drawing models. TSG has previously crashed after trajectory filters were changed and scene handlers were notified following a run. Apply filters before generating events and avoid manual scene notifications after changing filters.
+
+### Particle colors and energy brightness
+
+| Particle | `particle_type` color | `particle_energy` hue |
+| --- | --- | --- |
+| Proton | Cyan | Cyan-blue |
+| Neutron | Yellow | Yellow |
+| Gamma | Green | Green |
+| Electron (`e-`) | Red | Red |
+| Positron (`e+`) | Magenta | Magenta |
+| Other | Grey | Neutral gray |
+
+Energy brightness is per step. Each line segment connects two Geant4 step points. Its brightness comes from the kinetic energy of the particle entering that step, including on secondary tracks. A loss at the end of a step is reflected in the next segment if the track continues. Primary and secondary protons share the same hue.
+
+The default range is **0.01 to 1000 MeV**. The model scales the hue's RGB channels logarithmically from 20% to 100%, with full opacity. At 0.01, 0.1, 1, 10, 100 and 1000 MeV the brightness is 20%, 36%, 52%, 68%, 84% and 100%, respectively. Energies outside the range clamp to the nearest endpoint. Zero, negative, nonfinite and missing energies use the 20% floor. To change the scale, edit the two bounds in `/lunar/vis/particleEnergy 0.01 1000` in the source file `macros/vis_particle_energy.mac` and rebuild to refresh the copy. Both values are in MeV and must satisfy `0 < minimum < maximum`.
+
+The trajectory presets keep up to 100 events per run for redraw or review, using Geant4's event-retention setting. The live TSG view can accumulate additional drawn events until its transient scene is cleared. Use small runs for a readable overlay, or set `/vis/scene/endOfEventAction refresh` before a run to show one event at a time. The energy preset joins adjacent segments with the same color into one polyline. Standard headless batch runs do not store the extra trajectory data.
 
 ## Run Monte Carlo
 
@@ -112,7 +162,7 @@ cmake -S . -B build -G Ninja \
 cmake --build build
 ```
 
-[CMakeLists.txt](CMakeLists.txt) finds Geant4 with `ui_all` and `vis_all`, compiles the application target `lunar_device`, and copies `init_vis.mac`, `vis.mac`, and `run_lunar.mac` into `build/` using `configure_file(COPYONLY)`. Edit the source macros and run `cmake --build build -j 4` to refresh the copies through CMake regeneration. The executable reads the startup macros relative to its working directory. Commands starting with `../` use the source copies of the macros.
+[CMakeLists.txt](CMakeLists.txt) finds Geant4 with `ui_all` and `vis_all`, compiles the application target `lunar_device`, and copies `init_vis.mac`, `vis.mac`, `run_lunar.mac`, and the startup presets under `macros/` into `build/` using `configure_file(COPYONLY)`. Edit the source macros and run `cmake --build build -j 4` to refresh the copies through CMake regeneration. The executable reads the startup macros relative to its working directory. Commands starting with `../` use the source copies of the macros.
 
 CMake also copies the optional B1 macros `run1.mac` and `run2.mac`. They override the default particle type and energy, so use the LunarDevice macros above for the standard 100 MeV proton runs.
 

@@ -1,0 +1,5 @@
+# Color by charge sign and display step markers.
+/vis/modeling/trajectories/create/drawByCharge
+/vis/modeling/trajectories/drawByCharge-0/default/setDrawStepPts true
+/vis/modeling/trajectories/drawByCharge-0/default/setStepPtsSize 2
+/vis/modeling/trajectories/select drawByCharge-0
